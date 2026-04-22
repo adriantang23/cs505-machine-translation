@@ -1,0 +1,68 @@
+Abstract
+Change: a phrase-based statistical system with a bigram language model and beam-search decoding 
+To: a phrase-based statistical trigram language model and a log-linear stack decoder
+Change: our phrase-based system achieves 5.22 BLEU To: our phrase-based system achieves 12.35 BLEU
+add to: “planned extensions including larger training sets, improved alignment, and an IBM Model 2 baseline", re-evaluation of test set to be part of europarl corpus
+
+Methods §2.2 — Phrase-based SMT
+Change: Phrase table built from a position-ratio heuristic, $L_{\max}=4$, min count 2, top 5 translations To: Phrase table built from consistent-with-alignment extraction (Och 1999) using fast_align + gdfa symmetrized alignments, $L_{\max}=3$, top 20 translations
+Change: Two features stored per phrase pair (phrase probability, normalized counts) To: Four Moses-style log-linear features: $\phi(\bar e\mid\bar f)$, $\phi(\bar f\mid\bar e)$, $\mathrm{lex}(\bar e\mid\bar f,a)$, $\mathrm{lex}(\bar f\mid\bar e,a)$ with NULL-aware lexical translation tables
+Change: Bigram language model with add-one (Laplace) smoothing To: Trigram language model with stupid backoff ($\alpha = 0.4$)
+Change: Monotonic beam-search decoder, beam size 12, scored as $\log P_\text{phrase} + \lambda \log P_\text{LM}$, $\lambda=0.35$, unknown words passed through verbatim To: Log-linear stack decoder (Pharaoh/Moses style): coverage-bitmap stacks, distortion limit 2, beam 32, up to 4 options per span, hypothesis recombination on (coverage, last end, last 2 LM words), future-cost DP for pruning, six feature weights set by hand with MERT tuning planned
+
+Experiments §3.3 — Setup
+	Phrase run time (I didn’t run this on colab) 2.3 minutes to decode 3003 sentences.
+
+Also update table to show 12.35 Bleu
+
+Results §4.1 — Table
+Change: Single-column table, Phrase-based SMT (ours) → 5.22, all on newstest2014 To: Two-column table adding a Test set column; Phrase-based SMT (ours) → Europarl held-out → 23.79; caption clarifies the two test sets are not directly comparable
+
+Results §4.2 — Qualitative analysis
+Bigram -> Trigram
+
+Examples:
+
+
+Sample WMT14 translations:
+FR : L'affaire NSA souligne l'absence totale de débat sur le renseignement
+REF: NSA Affair Emphasizes Complete Lack of Debate on Intelligence
+PB : the nsa stresses total lack of debate on the intelligence
+
+FR : Comment expliquer l'attitude contradictoire du gouvernement français, qui d'un coté s'offusque en public en convoquant l'ambassadeur des Etats-Unis le 21 octobre, et de l'autre interdit le survol du territoire par l'avion présidentiel bolivien, sur la base de la rumeur de la présence à son bord d'Edward Snowden ?
+REF: Why the contradictory attitude of the French government? On the one hand, it publicly takes offence and summons the Ambassador of the United States on October 21 and, on the other, it forbids the Bolivian president's plane to enter its air space on the basis of a rumor that Edward Snowden was on board?
+PB : the attitude of the french government which quoted on public decided ambassador of the 21 and the prohibits the territory by air reconciler bolivien, on the basis of the rumour reported a the presence its the d'edward snowden it?
+
+FR : Selon moi, il y a deux niveaux de réponse de la part du gouvernement français.
+REF: In my opinion, there are two levels of response from the French government.
+PB : i think there are two levels of response by the part of the french government.
+
+FR : Lorsque François Hollande téléphone à Barack Obama ou quand le ministre des affaires étrangères Laurent Fabius convoque l'ambassadeur des Etats-Unis, ils réagissent à une vraie découverte, qui est celle de l'ampleur de la surveillance américaine sur l'ensemble des communications en France.
+REF: When François Hollande telephones Barack Obama, or when Foreign Minister Laurent Fabius summons the Ambassador of the United States, they are responding to a real discovery, that of the scale of America's surveillance of communications within France generally.
+PB : when françois play telephone to barack obama minister for foreign affairs laurent fabius convoque ambassador the united react to a genuine discovered, which is the scale of the monitoring american on all of communications in france.
+
+FR : N'est-il pas surprenant de lire dans les colonnes du Monde à quelques semaines d'intervalle d'une part la reproduction de la correspondance diplomatique américaine et d'autre part une condamnation des écoutes du Quai d'Orsay par la NSA ?
+REF: And is it not surprising to read in the pages of Le Monde, on the one hand, a reproduction of diplomatic correspondence with the US and, on the other, condemnation of the NSA's spying on the Ministry of Foreign Affairs on the Quai d'Orsay, within a matter of weeks?
+PB : is it not surprising to read in the world few weeks before the reproduction of the american and condemnation of the phone tied d'orsay by the nsa it?
+
+
+
+
+
+
+Results §4.3 — Discussion
+Change: phrase-based model improves by memorizing multi-word units and incorporating a language model, which modestly improves fluency To: Phrase-based model reaches 12.35 BLEU in-domain via alignment-consistent phrase extraction, four log-linear features, trigram LM, and a stack decoder with limited reordering; notes that IBM vs. phrase-based comparison on newstest2014 is confounded by domain shift
+
+
+Table:
+FR : reprise de la session
+REF: resumption of the session
+PB : resumption of the session
+
+FR : L'affaire NSA souligne l'absence totale de débat sur le renseignement
+REF: NSA Affair Emphasizes Complete Lack of Debate on Intelligence
+PB : the nsa stresses total lack of debate on the intelligence
+
+FR : Selon moi, il y a deux niveaux de réponse de la part du gouvernement français.
+REF: In my opinion, there are two levels of response from the French government.
+PB : i think there are two levels of response by the part of the french government.
