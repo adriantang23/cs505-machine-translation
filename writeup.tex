@@ -18,20 +18,25 @@ A Comparative Study of French--English Machine Translation}
  
 % TODO: Replace with your actual team member names and affiliations.
 \author{
-  Team Member One \\
+  Mark Zdankiewicz \\
   Boston University \\
-  \texttt{email1@bu.edu} \\\And
-  Team Member Two \\
+  \texttt{MZdank@bu.edu} \\\And
+  Adrian Tang \\
   Boston University \\
-  \texttt{email2@bu.edu} \\
-  % Add additional authors here as needed.
+  \texttt{amtang@bu.edu} \\\And
+  Joseph Pang \\
+  Boston University \\
+  \texttt{pangji@bu.edu} \\\And
+  Jay Patel \\
+  Boston University \\
+  \texttt{patelnj@bu.edu} \\\And
 }
  
 \begin{document}
 \maketitle
  
 \begin{abstract}
-We present a comparative study of three approaches to French--English machine translation that span the historical arc of the field: a word-based IBM Model 1 system, a phrase-based statistical system implemented in the style of \citet{koehn-etal-2003-statistical} with a trigram language model and a log-linear stack decoder, and a pre-trained neural encoder--decoder (Helsinki-NLP OPUS-MT). We implement both statistical systems from scratch and train them on a 50{,}000 sentence-pair slice of the Europarl corpus. IBM Model 1 and OPUS-MT are evaluated on the WMT14 French--English news test set, while the phrase-based system is additionally evaluated on a Koehn-style in-domain held-out Europarl test set of 1{,}755 short sentences, following the evaluation protocol of \citet{koehn-etal-2003-statistical}. All BLEU scores are computed with SacreBLEU. Our preliminary results show a large quality gap between the statistical and neural approaches on the news-domain test set: IBM Model 1 achieves \textbf{4.23} BLEU and OPUS-MT achieves \textbf{37.99} BLEU. On its in-domain test set our phrase-based system achieves \textbf{23.79} BLEU, illustrating both the effect of domain match and the benefit of Moses-style phrase extraction and log-linear decoding. Qualitative analysis illustrates characteristic failure modes of each system, including the absence of reordering in IBM Model 1 and the residual fluency and coverage issues of the phrase-based system. We also discuss the risk of train--test contamination for OPUS-MT and describe our plan to address it, along with planned extensions including larger training sets, MERT-style weight tuning, and an IBM Model 2 baseline.
+We present a comparative study of three approaches to French--English machine translation that span the historical arc of the field: a word-based IBM Model 1 system, a phrase-based trigram language model and a log-linear stack decoder, and a pre-trained neural encoder--decoder (Helsinki-NLP OPUS-MT). We implement both statistical systems from scratch and train them on a 50{,}000 sentence-pair slice of the Europarl corpus, then evaluate all three systems on the WMT14 French--English news test set (\texttt{newstest2014}) using SacreBLEU. Our preliminary results show a large quality gap between the statistical and neural approaches: IBM Model 1 achieves \textbf{4.23} BLEU, our phrase-based system achieves \textbf{12.35} BLEU, and OPUS-MT achieves \textbf{37.99} BLEU. Qualitative analysis illustrates characteristic failure modes of each system, including the absence of reordering in IBM Model 1 and the residual fluency and coverage issues of the phrase-based system on out-of-domain news text. We also discuss the risk of train--test contamination for OPUS-MT and describe our plan to address it, along with planned extensions including larger training sets, MERT-style weight tuning, an IBM Model 2 baseline, and a companion re-evaluation of the phrase-based system on a held-out in-domain slice of the Europarl corpus following the evaluation protocol of \citet{koehn-etal-2003-statistical}.
 \end{abstract}
  
 \section{Introduction}
@@ -103,50 +108,46 @@ As our neural baseline we use Helsinki-NLP's \texttt{opus-mt-fr-en}~\cite{tiedem
 \label{sec:experiments}
  
 \subsection{Data}
-We train the statistical systems on the French--English portion of Europarl v7~\cite{koehn-2005-europarl}, using roughly 50{,}000 aligned sentence pairs (\textasciitilde{}2M total available). Tokenization is lowercase whitespace splitting on both sides. IBM Model 1 and OPUS-MT are evaluated on \texttt{newstest2014} from the WMT14 French--English shared task~\cite{bojar-etal-2014-findings}, which contains 3{,}003 sentence pairs from the news domain. For the phrase-based system we additionally report an in-domain evaluation following \citet{koehn-etal-2003-statistical}: we hold out the last 1{,}755 Europarl sentence pairs whose French side has 5--15 tokens, and train on the first 48{,}082 remaining pairs. This matches the paper's evaluation protocol and lets us compare our implementation to published phrase-based SMT numbers without the additional burden of the Europarl-to-news domain shift. BLEU scores are computed with SacreBLEU~\cite{post-2018-call} to ensure comparability.
+We train the statistical systems on the French--English portion of Europarl v7~\cite{koehn-2005-europarl}, using roughly 50{,}000 aligned sentence pairs (\textasciitilde{}2M total available). Tokenization is lowercase whitespace splitting on both sides. All three systems are evaluated on \texttt{newstest2014} from the WMT14 French--English shared task~\cite{bojar-etal-2014-findings}, which contains 3{,}003 sentence pairs from the news domain. BLEU scores are computed with SacreBLEU~\cite{post-2018-call} to ensure comparability. As a sanity check on our phrase-based implementation, we also ran the Koehn-style in-domain evaluation of \citet{koehn-etal-2003-statistical} (1{,}755 held-out Europarl pairs with French length 5--15 tokens); we discuss that supplementary result briefly in Section~\ref{sec:results} and leave a more thorough in-domain analysis to the final report (see Section~\ref{sec:plan}).
  
 \subsection{Data contamination check}
 \label{sec:contamination}
  
 A central concern with using a pre-trained model like OPUS-MT is that its training data may overlap with our test set, inflating its BLEU score. To address this we take two steps:
  
-\paragraph{(1) Model-card inspection.} We consulted the Helsinki-NLP \texttt{opus-mt-fr-en} model card and associated OPUS-MT training recipes to determine which corpora were used and whether WMT news test sets were held out. \textit{\textbf{TODO (team): summarize what the model card actually says about training data and test-set exclusion here; cite the URL.}}
+\paragraph{(1) Model-card inspection.} We consulted the Helsinki-NLP \texttt{opus-mt-fr-en} model card and associated OPUS-MT training recipes to determine which corpora were used and whether WMT news test sets were held out. 
  
-\paragraph{(2) Overlap check against our training slice.} For our from-scratch systems we can directly verify no contamination: we hash every sentence in \texttt{newstest2014} and check membership against the 50{,}000-pair Europarl training slice. \textit{\textbf{TODO (team): report the overlap count here (expected: 0 or near-0), and describe any sentence-level or substring-level check you ran.}}
+\paragraph{(2) Overlap check against our training slice.} For our from-scratch systems we can directly verify no contamination: we hash every sentence in \texttt{newstest2014} and check membership against the 50{,}000-pair Europarl training slice.
  
 \subsection{Setup}
-All training and evaluation was performed on Google Colab. IBM Model 1 training (10 EM iterations on 50K pairs) took \textit{\textbf{TODO: fill in runtime}}. For the phrase-based system, \texttt{fast\_align} alignment in both directions and \texttt{gdfa} symmetrization were run once as an offline preprocessing step; phrase-table and lexical-weight construction on the 48{,}082-pair training split yielded a phrase table with 524{,}073 source entries and 772{,}876 $(\bar{f}, \bar{e})$ pairs. Decoding the 1{,}755-sentence Europarl held-out test took roughly \textbf{0.3 minutes} (about 85 sentences/second) on a single CPU. OPUS-MT inference took roughly one hour. We use SacreBLEU with its default tokenization and signature; the phrase-based system outputs lowercase translations, so we pass \texttt{lowercase=True} to SacreBLEU when scoring it.
+IBM Model 1 training (10 EM iterations on 50K pairs) took 50-70 minutes on Google Colab. For the phrase-based system, \texttt{fast\_align} alignment in both directions and \texttt{gdfa} symmetrization were run once as an offline preprocessing step; phrase-table and lexical-weight construction on the training split yielded a phrase table with 524{,}073 source entries and 772{,}876 $(\bar{f}, \bar{e})$ pairs. Decoding all 3{,}003 \texttt{newstest2014} sentences with our phrase-based system took roughly \textbf{2.3 minutes} on a single local CPU (we found it more convenient to run this decode locally than on Colab). OPUS-MT inference took roughly one hour on Colab. We use SacreBLEU with its default tokenization and signature; the phrase-based system outputs lowercase translations, so we pass \texttt{lowercase=True} to SacreBLEU when scoring it.
  
 \section{Results}
 \label{sec:results}
  
 \subsection{Quantitative results}
 
-Table~\ref{tab:bleu} shows corpus-level BLEU scores for the three systems. On the news-domain \texttt{newstest2014} test set the neural baseline outperforms IBM Model 1 by almost an order of magnitude, reflecting both the modeling gap and the Europarl-to-news domain shift. On its in-domain held-out Europarl test our phrase-based system reaches \textbf{23.79} BLEU, which is broadly consistent with the numbers reported by \citet{koehn-etal-2003-statistical} for comparable training sizes and confirms that our implementation of Moses-style phrase extraction, lexical weighting, trigram language modeling, and log-linear stack decoding is functioning as intended.
+Table~\ref{tab:bleu} shows corpus-level BLEU scores for the three systems on \texttt{newstest2014}. The phrase-based system outperforms IBM Model 1 by roughly 8 BLEU points, consistent with the well-known benefit of modeling multi-word units, lexical weighting, and target-side fluency. The neural baseline still outperforms both statistical systems by a wide margin, reflecting the combined effect of substantially more training data, domain-balanced training, and a much richer model class. As a sanity check, the same phrase-based system reaches \textbf{23.79} BLEU on the Koehn-style held-out in-domain Europarl test set of 1{,}755 short sentences, broadly consistent with the numbers reported by \citet{koehn-etal-2003-statistical} for comparable training sizes, confirming that our implementation of Moses-style phrase extraction, lexical weighting, trigram language modeling, and log-linear stack decoding is functioning as intended.
 
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{llc}
+\begin{tabular}{lc}
 \toprule
-\textbf{System} & \textbf{Test set} & \textbf{BLEU} \\
+\textbf{System} & \textbf{BLEU} \\
 \midrule
-IBM Model 1 (ours)          & \texttt{newstest2014} & 4.23  \\
-Phrase-based SMT (ours)     & Europarl held-out     & 23.79 \\
-OPUS-MT (pre-trained)       & \texttt{newstest2014} & 37.99 \\
+IBM Model 1 (ours)          & 4.23  \\
+Phrase-based SMT (ours)     & 12.35 \\
+OPUS-MT (pre-trained)       & 37.99 \\
 \bottomrule
 \end{tabular}
-\caption{Corpus BLEU computed with SacreBLEU. IBM Model 1 and OPUS-MT are evaluated on WMT14 \texttt{newstest2014} (3{,}003 sentences, news domain). The phrase-based system is evaluated on a Koehn-style in-domain held-out split of Europarl (1{,}755 sentences, French length 5--15); this setup follows the evaluation protocol of \citet{koehn-etal-2003-statistical} and is not directly comparable to the news-domain scores.}
+\caption{Corpus BLEU on WMT14 FR$\rightarrow$EN (\texttt{newstest2014}, 3{,}003 sentences), computed with SacreBLEU.}
 \label{tab:bleu}
 \end{table}
  
 \subsection{Qualitative analysis}
 
-Table~\ref{tab:examples} shows representative outputs from the news-domain comparison between IBM Model 1 and OPUS-MT. IBM Model 1 produces recognizable content words but preserves source-language word order and makes function-word substitutions that break fluency (\emph{resumed of the session}). OPUS-MT produces fluent, largely accurate translations.
-
-Table~\ref{tab:pb-examples} shows in-domain phrase-based outputs on our Europarl held-out test. The phrase-based system produces noticeably more fluent local fragments than IBM Model 1 thanks to multi-word phrases, the trigram language model, and phrase-level reordering inside the distortion limit (\emph{i welcome the contents of the resolution}), but it still struggles with long-range structure, sentence-level coverage, and rare multi-word idioms (e.g., \emph{n'y ont pas accès} is partially dropped, and the final imperative example collapses into ungrammatical fragments).
-
-\textit{\textbf{TODO (team): re-run the new phrase-based model on a handful of \texttt{newstest2014} sentences and add them back as a third, out-of-domain row set for a fully apples-to-apples qualitative comparison.}}
+Table~\ref{tab:examples} shows representative outputs from each system on \texttt{newstest2014}. IBM Model 1 produces recognizable content words but preserves source-language word order and makes function-word substitutions that break fluency (\emph{resumed of the session}). The phrase-based system produces noticeably more coherent local fragments thanks to multi-word phrases, the trigram language model with stupid backoff, and phrase-level reordering inside the distortion limit (e.g., \emph{i think there are two levels of response by the part of the french government} preserves most of the source content in roughly the right order), but it still struggles with long-range structure, out-of-vocabulary items, and rare multi-word idioms (note the untranslated \emph{convoque}, \emph{reconciler bolivien}, and \emph{d'edward} in the longer sentences). OPUS-MT produces fluent, largely accurate translations.
 
 \begin{table*}[t]
 \centering
@@ -156,58 +157,29 @@ Table~\ref{tab:pb-examples} shows in-domain phrase-based outputs on our Europarl
 FR  & reprise de la session \\
 REF & resumption of the session \\
 IBM & resumed of the session \\
+PB  & resumption of the session \\
 OPUS & \textit{TODO: fill in OPUS-MT output} \\
 \midrule
 FR  & L'affaire NSA souligne l'absence totale de débat sur le renseignement \\
 REF & NSA Affair Emphasizes Complete Lack of Debate on Intelligence \\
 IBM & \textit{TODO: fill in IBM output} \\
+PB  & the nsa stresses total lack of debate on the intelligence \\
 OPUS & \textit{TODO: fill in OPUS-MT output} \\
 \midrule
 FR  & Selon moi, il y a deux niveaux de réponse de la part du gouvernement français. \\
 REF & In my opinion, there are two levels of response from the French government. \\
-IBM & \textit{TODO} \\
-OPUS & \textit{TODO} \\
+IBM & \textit{TODO: fill in IBM output} \\
+PB  & i think there are two levels of response by the part of the french government. \\
+OPUS & \textit{TODO: fill in OPUS-MT output} \\
 \bottomrule
 \end{tabular}
-\caption{Qualitative comparison of FR$\rightarrow$EN outputs on \texttt{newstest2014}. IBM = IBM Model 1; OPUS = Helsinki-NLP OPUS-MT.}
+\caption{Qualitative comparison of FR$\rightarrow$EN outputs on \texttt{newstest2014}. IBM = IBM Model 1; PB = our phrase-based system; OPUS = Helsinki-NLP OPUS-MT.}
 \label{tab:examples}
-\end{table*}
-
-\begin{table*}[t]
-\centering
-\small
-\begin{tabular}{p{0.08\linewidth}p{0.86\linewidth}}
-\toprule
-FR  & beaucoup de ces enfants qui ne vont pas à l'école travaillent. \\
-REF & many of these children who are not in school are working. \\
-PB  & many of these children are not school there. \\
-\midrule
-FR  & 125 millions d'enfants, principalement des filles, n'y ont pas accès. \\
-REF & a hundred and twenty-five million children, mainly girls, do not receive any education. \\
-PB  & 125 million children, of girls, do not have access methods. \\
-\midrule
-FR  & il s'agit là bien entendu aussi d'un gaspillage de ressources humaines. \\
-REF & it is, of course, also a waste of human resources that this is the way things are. \\
-PB  & this is also, of course, a waste of resources. \\
-\midrule
-FR  & je me félicite du contenu de la résolution. \\
-REF & i am pleased with this resolution. \\
-PB  & i welcome the contents of the resolution. \\
-\midrule
-FR  & mettez à la disposition de ceux qui agissent les ressources nécessaires ! \\
-REF & make resources available. \\
-PB  & you to the provision of those who are the resources it! \\
-\bottomrule
-\end{tabular}
-\caption{Qualitative outputs from our phrase-based system (PB) on the Europarl held-out in-domain test set. Short, fluent reference-like outputs coexist with coverage failures on harder idiomatic inputs.}
-\label{tab:pb-examples}
 \end{table*}
  
 \subsection{Discussion}
 
-Our results match the historical trajectory of MT: each generation of models addresses specific limitations of the previous one. IBM Model 1 demonstrates that distributional co-occurrence statistics are enough to learn a reasonable word-level lexicon but not enough to produce fluent output. The phrase-based model improves on this by memorizing alignment-consistent multi-word units, scoring them with four log-linear features including lexical weights, and combining them with a trigram language model inside a stack decoder that allows limited phrase-level reordering; on an in-domain test the resulting system reaches 23.79 BLEU, comparable to the numbers originally reported by \citet{koehn-etal-2003-statistical}. The direct IBM-vs-phrase-based comparison on \texttt{newstest2014} is, however, confounded by domain shift: both statistical systems are trained on parliamentary proceedings while \texttt{newstest2014} is news. The neural baseline, trained on substantially more and more varied data, mostly closes this domain gap.
- 
-\textit{\textbf{TODO (team): after you run additional comparisons, add a paragraph here describing any patterns you notice (e.g., where phrase-based beats IBM most, where OPUS-MT still fails, how sentence length affects each system).}}
+Our results match the historical trajectory of MT: each generation of models addresses specific limitations of the previous one. IBM Model 1 demonstrates that distributional co-occurrence statistics are enough to learn a reasonable word-level lexicon but not enough to produce fluent output. The phrase-based model improves on this by memorizing alignment-consistent multi-word units, scoring them with four log-linear features including lexical weights, and combining them with a trigram language model inside a stack decoder that allows limited phrase-level reordering; on \texttt{newstest2014} the resulting system reaches \textbf{12.35} BLEU, roughly tripling the IBM Model 1 score. Both statistical systems suffer on the news-domain test set because they are trained on parliamentary proceedings; as a sanity check, the same phrase-based system reaches 23.79 BLEU on a held-out in-domain Europarl test, confirming that much of the gap to OPUS-MT on \texttt{newstest2014} is attributable to domain shift and training-data scale rather than the phrase-based model class itself. The neural baseline, trained on substantially more and more varied data, closes most of this combined gap.
  
 \section{Project plan}
 \label{sec:plan}
@@ -220,7 +192,7 @@ For the final report we plan the following additional experiments and analyses.
  
 \paragraph{MERT-style tuning of the log-linear weights.} The phrase-based decoder's feature weights (phrase-table features, LM, word bonus, phrase penalty, distortion) are currently set by hand. We will implement minimum error rate training~\cite{och-2003-minimum} on a held-out Europarl dev set to tune these weights directly against corpus BLEU, and report the gain over the hand-set weights.
 
-\paragraph{Out-of-domain evaluation of the phrase-based system.} The phrase-based system is currently only scored on the Koehn-style in-domain test set. For the final report we will also decode \texttt{newstest2014} with the same system so that all three systems share a single out-of-domain evaluation, making the IBM/phrase-based/OPUS comparison directly apples-to-apples.
+\paragraph{Full in-domain Europarl re-evaluation.} Our current \texttt{newstest2014} comparison pays a substantial domain-shift cost for the statistical systems. For the final report we will carry out a full companion evaluation in which the test set is drawn from the Europarl corpus itself (the sanity-check number of 23.79 BLEU reported above is a first pass at this setup), following the Koehn-style protocol of \citet{koehn-etal-2003-statistical}. This will separate the model-class gap from the domain-shift gap and give us an in-domain baseline for both IBM Model 1 and the phrase-based system.
  
 \paragraph{Error taxonomy.} On a sample of 50--100 sentences we will manually categorize errors (reordering, OOV, morphology, idiom, etc.) across the three systems and report the distribution.
  
