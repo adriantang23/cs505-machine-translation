@@ -147,7 +147,7 @@ OPUS-MT (pre-trained)       & 37.99 \\
  
 \subsection{Qualitative analysis}
 
-Table~\ref{tab:examples} shows representative outputs from each system on \texttt{newstest2014}. IBM Model 1 produces recognizable content words but preserves source-language word order and makes function-word substitutions that break fluency (\emph{resumed of the session}). The phrase-based system produces noticeably more coherent local fragments thanks to multi-word phrases, the trigram language model with stupid backoff, and phrase-level reordering inside the distortion limit (e.g., \emph{i think there are two levels of response by the part of the french government} preserves most of the source content in roughly the right order), but it still struggles with long-range structure, out-of-vocabulary items, and rare multi-word idioms (note the untranslated \emph{convoque}, \emph{reconciler bolivien}, and \emph{d'edward} in the longer sentences). OPUS-MT produces fluent, largely accurate translations.
+Table~\ref{tab:examples} shows representative outputs from each system on \texttt{newstest2014}. IBM Model 1 produces recognizable content words but preserves source-language word order and makes function-word substitutions that break fluency (\emph{resumed of the session}). The phrase-based system produces noticeably more coherent local fragments thanks to multi-word phrases, the trigram language model with stupid backoff, and phrase-level reordering inside the distortion limit (e.g., \emph{i think there are two levels of response by the part of the french government} preserves most of the source content in roughly the right order), but it still struggles with long-range structure, out-of-vocabulary items, and rare multi-word idioms (note the untranslated \emph{convoque}, \emph{reconciler bolivien}, and \emph{d'edward} in the longer sentences). OPUS-MT produces fluent, largely accurate translations: it renders the third example almost perfectly (\emph{In my view, there are two levels of response from the French government}, vs.\ the reference \emph{In my opinion\ldots}), and captures the gist of the second example well (\emph{The NSA case highlights the total absence of intelligence debate}). It does occasionally make minor morphological or lexical errors---for instance, \emph{resumed session} instead of the reference \emph{resumption of the session}---but these are far less severe than the systematic failures of the statistical systems.
 
 \begin{table*}[t]
 \centering
@@ -158,19 +158,19 @@ FR  & reprise de la session \\
 REF & resumption of the session \\
 IBM & resumed of the session \\
 PB  & resumption of the session \\
-OPUS & \textit{TODO: fill in OPUS-MT output} \\
+OPUS & resumed session \\
 \midrule
 FR  & L'affaire NSA souligne l'absence totale de débat sur le renseignement \\
 REF & NSA Affair Emphasizes Complete Lack of Debate on Intelligence \\
 IBM & \textit{TODO: fill in IBM output} \\
 PB  & the nsa stresses total lack of debate on the intelligence \\
-OPUS & \textit{TODO: fill in OPUS-MT output} \\
+OPUS & The NSA case highlights the total absence of intelligence debate \\
 \midrule
 FR  & Selon moi, il y a deux niveaux de réponse de la part du gouvernement français. \\
 REF & In my opinion, there are two levels of response from the French government. \\
 IBM & \textit{TODO: fill in IBM output} \\
 PB  & i think there are two levels of response by the part of the french government. \\
-OPUS & \textit{TODO: fill in OPUS-MT output} \\
+OPUS & In my view, there are two levels of response from the French government. \\
 \bottomrule
 \end{tabular}
 \caption{Qualitative comparison of FR$\rightarrow$EN outputs on \texttt{newstest2014}. IBM = IBM Model 1; PB = our phrase-based system; OPUS = Helsinki-NLP OPUS-MT.}
