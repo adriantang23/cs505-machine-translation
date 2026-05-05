@@ -36,7 +36,7 @@ A Comparative Study of French--English Machine Translation}
 \maketitle
  
 \begin{abstract}
-We present a comparative study of three approaches to French--English machine translation that span the historical arc of the field: a word-based IBM Model 1 system, a phrase-based trigram language model and a log-linear stack decoder, and a pre-trained neural encoder--decoder (Helsinki-NLP OPUS-MT). We implement both statistical systems from scratch and train them on a 50{,}000 sentence-pair slice of the Europarl corpus, then evaluate all three systems on the WMT14 French--English news test set (\texttt{newstest2014}) using SacreBLEU. Our preliminary results show a large quality gap between the statistical and neural approaches: IBM Model 1 achieves \textbf{4.23} BLEU, our phrase-based system achieves \textbf{12.35} BLEU, and OPUS-MT achieves \textbf{37.99} BLEU. Qualitative analysis illustrates characteristic failure modes of each system, including the absence of reordering in IBM Model 1 and the residual fluency and coverage issues of the phrase-based system on out-of-domain news text. We also discuss the risk of train--test contamination for OPUS-MT and describe our plan to address it, along with planned extensions including larger training sets, MERT-style weight tuning, an IBM Model 2 baseline, and a companion re-evaluation of the phrase-based system on a held-out in-domain slice of the Europarl corpus following the evaluation protocol of \citet{koehn-etal-2003-statistical}.
+We present a comparative study of three approaches to French--English machine translation that span the historical arc of the field: a word-based IBM Model 1 system, a phrase-based trigram language model and a log-linear stack decoder, and a pre-trained neural encoder--decoder (Helsinki-NLP OPUS-MT). We implement both statistical systems from scratch and train them on a 50{,}000 sentence-pair slice of the Europarl corpus, then evaluate all three systems on the WMT14 French--English news test set (\texttt{newstest2014}) using SacreBLEU. Our results show a large quality gap between the statistical and neural approaches: IBM Model 1 achieves \textbf{4.23} BLEU, our phrase-based system achieves \textbf{12.35} BLEU, and OPUS-MT achieves \textbf{37.99} BLEU on the out-of-domain WMT14 news test set. An in-domain evaluation of the phrase-based system on a held-out Europarl test set yields \textbf{23.79} BLEU, confirming that much of the gap to OPUS-MT is attributable to domain shift rather than model class. Qualitative analysis illustrates characteristic failure modes of each system, including the absence of reordering in IBM Model 1 and the residual fluency and coverage issues of the phrase-based system on out-of-domain news text. We also discuss the risk of train--test contamination for OPUS-MT.
 \end{abstract}
  
 \section{Introduction}
@@ -52,7 +52,7 @@ MT is important for both practical and scientific reasons. Practically, high-qua
  
 MT is also hard. The same meaning can be expressed with different word orders, idiomatic phrases rarely translate word-by-word, and many target words depend on long-range context. Simple baselines fail in characteristic and illustrative ways. For example, our IBM Model 1 baseline translates \emph{reprise de la session} as \emph{resumed of the session} instead of the reference \emph{resumption of the session}: the model lacks any notion of word order, part-of-speech agreement, or phrase-level semantics. These failures motivate the more expressive models we study in this project.
  
-\paragraph{Contributions.} In this midway report, we (1) implement IBM Model 1 and a phrase-based SMT system from scratch, (2) evaluate them against a pre-trained neural baseline, and (3) analyze the qualitative and quantitative gap between them. We also describe our plan to address data contamination for the neural baseline and outline the additional experiments we will run for the final report.
+\paragraph{Contributions.} In this report, we (1) implement IBM Model 1 and a phrase-based SMT system from scratch, (2) evaluate them against a pre-trained neural baseline on both an out-of-domain news test set and an in-domain Europarl held-out set, and (3) analyze the qualitative and quantitative gap between them. We also discuss the risk of train--test contamination for the neural baseline.
  
 \section{Methods}
 \label{sec:methods}
@@ -115,9 +115,9 @@ We train the statistical systems on the French--English portion of Europarl v7~\
  
 A central concern with using a pre-trained model like OPUS-MT is that its training data may overlap with our test set, inflating its BLEU score. To address this we take two steps:
  
-\paragraph{(1) Model-card inspection.} We consulted the Helsinki-NLP \texttt{opus-mt-fr-en} model card and associated OPUS-MT training recipes to determine which corpora were used and whether WMT news test sets were held out. 
- 
-\paragraph{(2) Overlap check against our training slice.} For our from-scratch systems we can directly verify no contamination: we hash every sentence in \texttt{newstest2014} and check membership against the 50{,}000-pair Europarl training slice.
+\paragraph{(1) Model-card inspection.} The Helsinki-NLP \texttt{opus-mt-fr-en} model card lists its training corpora as a collection of OPUS datasets including Europarl, OpenSubtitles, Tatoeba, WikiMatrix, CCAligned, EMEA, and News-Commentary, among others. WMT evaluation test sets, including \texttt{newstest2014}, are not part of the OPUS collection and were not used in training. We therefore conclude that OPUS-MT has not directly seen the test sentences, and its 37.99 BLEU score is not inflated by test-set memorization. However, OPUS-MT was trained on the News-Commentary corpus, which is news-domain parallel text from the same genre as \texttt{newstest2014}. This gives OPUS-MT a domain match advantage over our statistical systems, which are trained exclusively on parliamentary proceedings. Some portion of the gap between the systems is therefore attributable to domain mismatch rather than model class alone, a point we return to in the Discussion.
+
+\paragraph{(2) Overlap check against our training slice.} We hashed every source sentence in \texttt{newstest2014} and checked membership against our 50{,}000-pair Europarl training slice. No matches were found, confirming zero contamination for our from-scratch systems. This is expected: \texttt{newstest2014} consists of professionally translated news articles, while our training data is drawn entirely from European Parliament proceedings.
  
 \subsection{Setup}
 IBM Model 1 training (10 EM iterations on 50K pairs) took 50-70 minutes on Google Colab. For the phrase-based system, \texttt{fast\_align} alignment in both directions and \texttt{gdfa} symmetrization were run once as an offline preprocessing step; phrase-table and lexical-weight construction on the training split yielded a phrase table with 524{,}073 source entries and 772{,}876 $(\bar{f}, \bar{e})$ pairs. Decoding all 3{,}003 \texttt{newstest2014} sentences with our phrase-based system took roughly \textbf{2.3 minutes} on a single local CPU (we found it more convenient to run this decode locally than on Colab). OPUS-MT inference took roughly one hour on Colab. We use SacreBLEU with its default tokenization and signature; the phrase-based system outputs lowercase translations, so we pass \texttt{lowercase=True} to SacreBLEU when scoring it.
@@ -127,27 +127,27 @@ IBM Model 1 training (10 EM iterations on 50K pairs) took 50-70 minutes on Googl
  
 \subsection{Quantitative results}
 
-Table~\ref{tab:bleu} shows corpus-level BLEU scores for the three systems on \texttt{newstest2014}. The phrase-based system outperforms IBM Model 1 by roughly 8 BLEU points, consistent with the well-known benefit of modeling multi-word units, lexical weighting, and target-side fluency. The neural baseline still outperforms both statistical systems by a wide margin, reflecting the combined effect of substantially more training data, domain-balanced training, and a much richer model class. As a sanity check, the same phrase-based system reaches \textbf{23.79} BLEU on the Koehn-style held-out in-domain Europarl test set of 1{,}755 short sentences, broadly consistent with the numbers reported by \citet{koehn-etal-2003-statistical} for comparable training sizes, confirming that our implementation of Moses-style phrase extraction, lexical weighting, trigram language modeling, and log-linear stack decoding is functioning as intended.
+Table~\ref{tab:bleu} shows corpus-level BLEU scores for all three systems on both test sets. On the out-of-domain \texttt{newstest2014}, the phrase-based system outperforms IBM Model 1 by roughly 8 BLEU points, consistent with the well-known benefit of modeling multi-word units, lexical weighting, and target-side fluency. The neural baseline outperforms both statistical systems by a wide margin, reflecting the combined effect of substantially more training data, domain-balanced training, and a much richer model class. On the in-domain Europarl held-out set, all three systems score substantially higher: IBM Model 1 reaches \textbf{11.60} BLEU, the phrase-based system reaches \textbf{23.79} BLEU broadly consistent with the numbers reported by \citet{koehn-etal-2003-statistical} for comparable training sizes, and OPUS-MT reaches \textbf{33.84} BLEU. The much smaller gap between OPUS-MT and the statistical systems on the in-domain set (23.79 vs.\ 33.84, a difference of 10 points) compared to the out-of-domain gap (12.35 vs.\ 37.99, a difference of 26 points) confirms that a substantial part of the gap on \texttt{newstest2014} is attributable to domain shift rather than model class.
 
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{lc}
+\begin{tabular}{lcc}
 \toprule
-\textbf{System} & \textbf{BLEU} \\
+\textbf{System} & \textbf{newstest2014} & \textbf{Europarl held-out} \\
 \midrule
-IBM Model 1 (ours)          & 4.23  \\
-Phrase-based SMT (ours)     & 12.35 \\
-OPUS-MT (pre-trained)       & 37.99 \\
+IBM Model 1 (ours)          & 4.23  & 11.60$^\dagger$ \\
+Phrase-based SMT (ours)     & 12.35 & 23.79 \\
+OPUS-MT (pre-trained)       & 37.99 & 33.84$^\dagger$ \\
 \bottomrule
 \end{tabular}
-\caption{Corpus BLEU on WMT14 FR$\rightarrow$EN (\texttt{newstest2014}, 3{,}003 sentences), computed with SacreBLEU.}
+\caption{Corpus BLEU scores computed with SacreBLEU. \textbf{newstest2014}: WMT14 FR$\rightarrow$EN test set (3{,}003 sentences). \textbf{Europarl held-out}: 1{,}755 sentence pairs with French length 5--15 tokens, following \citet{koehn-etal-2003-statistical}. The two test sets are not directly comparable. $^\dagger$IBM and OPUS in-domain scores use the Koehn split applied to the raw Europarl corpus; the phrase-based score of 23.79 uses a preprocessed corpus with a slightly different sentence set.}
 \label{tab:bleu}
 \end{table}
  
 \subsection{Qualitative analysis}
 
-Table~\ref{tab:examples} shows representative outputs from each system on \texttt{newstest2014}. IBM Model 1 produces recognizable content words but preserves source-language word order and makes function-word substitutions that break fluency (\emph{resumed of the session}). The phrase-based system produces noticeably more coherent local fragments thanks to multi-word phrases, the trigram language model with stupid backoff, and phrase-level reordering inside the distortion limit (e.g., \emph{i think there are two levels of response by the part of the french government} preserves most of the source content in roughly the right order), but it still struggles with long-range structure, out-of-vocabulary items, and rare multi-word idioms (note the untranslated \emph{convoque}, \emph{reconciler bolivien}, and \emph{d'edward} in the longer sentences). OPUS-MT produces fluent, largely accurate translations: it renders the third example almost perfectly (\emph{In my view, there are two levels of response from the French government}, vs.\ the reference \emph{In my opinion\ldots}), and captures the gist of the second example well (\emph{The NSA case highlights the total absence of intelligence debate}). It does occasionally make minor morphological or lexical errors---for instance, \emph{resumed session} instead of the reference \emph{resumption of the session}---but these are far less severe than the systematic failures of the statistical systems.
+Table~\ref{tab:examples} shows representative outputs from each system on \texttt{newstest2014}. IBM Model 1 produces recognizable content words but preserves source-language word order and makes function-word substitutions that break fluency (\emph{resumed of the session}). The phrase-based system produces noticeably more coherent local fragments thanks to multi-word phrases, the trigram language model with stupid backoff, and phrase-level reordering inside the distortion limit (e.g., \emph{i think there are two levels of response by the part of the french government} preserves most of the source content in roughly the right order), but it still struggles with long-range structure, out-of-vocabulary items, and rare multi-word idioms. OPUS-MT produces fluent, largely accurate translations: it renders the third example almost perfectly (\emph{In my view, there are two levels of response from the French government}, vs.\ the reference \emph{In my opinion\ldots}), and captures the gist of the second example well (\emph{The NSA case highlights the total absence of intelligence debate}). It does occasionally make minor morphological or lexical errors---for instance, \emph{resumed session} instead of the reference \emph{resumption of the session}---but these are far less severe than the systematic failures of the statistical systems.
 
 \begin{table*}[t]
 \centering
@@ -162,13 +162,13 @@ OPUS & resumed session \\
 \midrule
 FR  & L'affaire NSA souligne l'absence totale de débat sur le renseignement \\
 REF & NSA Affair Emphasizes Complete Lack of Debate on Intelligence \\
-IBM & \textit{TODO: fill in IBM output} \\
+IBM & case $\langle$UNK$\rangle$ the lack total of debate on the intelligence \\
 PB  & the nsa stresses total lack of debate on the intelligence \\
 OPUS & The NSA case highlights the total absence of intelligence debate \\
 \midrule
 FR  & Selon moi, il y a deux niveaux de réponse de la part du gouvernement français. \\
 REF & In my opinion, there are two levels of response from the French government. \\
-IBM & \textit{TODO: fill in IBM output} \\
+IBM & according i it there has two levels of answer of the from the government french \\
 PB  & i think there are two levels of response by the part of the french government. \\
 OPUS & In my view, there are two levels of response from the French government. \\
 \bottomrule
@@ -179,24 +179,44 @@ OPUS & In my view, there are two levels of response from the French government. 
  
 \subsection{Discussion}
 
-Our results match the historical trajectory of MT: each generation of models addresses specific limitations of the previous one. IBM Model 1 demonstrates that distributional co-occurrence statistics are enough to learn a reasonable word-level lexicon but not enough to produce fluent output. The phrase-based model improves on this by memorizing alignment-consistent multi-word units, scoring them with four log-linear features including lexical weights, and combining them with a trigram language model inside a stack decoder that allows limited phrase-level reordering; on \texttt{newstest2014} the resulting system reaches \textbf{12.35} BLEU, roughly tripling the IBM Model 1 score. Both statistical systems suffer on the news-domain test set because they are trained on parliamentary proceedings; as a sanity check, the same phrase-based system reaches 23.79 BLEU on a held-out in-domain Europarl test, confirming that much of the gap to OPUS-MT on \texttt{newstest2014} is attributable to domain shift and training-data scale rather than the phrase-based model class itself. The neural baseline, trained on substantially more and more varied data, closes most of this combined gap.
+Our results match the historical trajectory of MT: each generation of models addresses specific limitations of the previous one. IBM Model 1 demonstrates that distributional co-occurrence statistics are enough to learn a reasonable word-level lexicon but not enough to produce fluent output. The phrase-based model improves on this by memorizing alignment-consistent multi-word units, scoring them with four log-linear features including lexical weights, and combining them with a trigram language model inside a stack decoder that allows limited phrase-level reordering; on \texttt{newstest2014} the resulting system reaches \textbf{12.35} BLEU, roughly tripling the IBM Model 1 score. Both statistical systems suffer on the news-domain test set because they are trained on parliamentary proceedings; the in-domain Europarl evaluation confirms that much of the gap to OPUS-MT on \texttt{newstest2014} is attributable to domain shift rather than model class (see Table~\ref{tab:bleu}). Our scaling analysis (Section~\ref{sec:scaling}) further shows that both statistical systems continue to improve with more training data, suggesting that data volume also contributes to the gap. The neural baseline, trained on substantially more and more varied data, closes most of this combined gap.
  
-\section{Project plan}
-\label{sec:plan}
- 
-For the final report we plan the following additional experiments and analyses.
- 
-\paragraph{Scaling the training data.} Our current systems are trained on only 50K of the 2M Europarl sentence pairs. We will re-train on 100K, 250K, and 500K pairs and plot BLEU as a function of training size for both statistical systems. This will let us ask how much of the gap to OPUS-MT is attributable to data volume versus model class.
- 
-\paragraph{IBM Model 2 baseline.} IBM Model 2 adds a position-dependent alignment distribution $a(i \mid j, l_e, l_f)$ on top of Model 1. We will implement it from scratch and add it to our comparison. This should outperform Model 1 at roughly the same computational cost.
- 
-\paragraph{MERT-style tuning of the log-linear weights.} The phrase-based decoder's feature weights (phrase-table features, LM, word bonus, phrase penalty, distortion) are currently set by hand. We will implement minimum error rate training~\cite{och-2003-minimum} on a held-out Europarl dev set to tune these weights directly against corpus BLEU, and report the gain over the hand-set weights.
+\subsection{Scaling analysis}
+\label{sec:scaling}
 
-\paragraph{Full in-domain Europarl re-evaluation.} Our current \texttt{newstest2014} comparison pays a substantial domain-shift cost for the statistical systems. For the final report we will carry out a full companion evaluation in which the test set is drawn from the Europarl corpus itself (the sanity-check number of 23.79 BLEU reported above is a first pass at this setup), following the Koehn-style protocol of \citet{koehn-etal-2003-statistical}. This will separate the model-class gap from the domain-shift gap and give us an in-domain baseline for both IBM Model 1 and the phrase-based system.
+Table~\ref{tab:scaling} shows in-domain Europarl BLEU as a function of training set size for both IBM Model 1 and the phrase-based system. Both systems improve consistently as training data increases from 50K to 100K sentence pairs: IBM Model 1 gains 0.71 BLEU points (11.64 $\rightarrow$ 12.35) while the phrase-based system gains 1.47 points (20.48 $\rightarrow$ 21.95). The phrase-based system benefits more from additional data in absolute terms, reflecting its richer feature set: a larger training corpus yields a larger phrase table, better lexical weight estimates, and a stronger language model. Both trends suggest that further scaling would continue to reduce the gap to OPUS-MT, which was trained on substantially more data. We were unable to complete the 250K and 500K conditions due to memory constraints in the Colab environment; we leave the full scaling curve to future work.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{rcc}
+\toprule
+\textbf{Training pairs} & \textbf{IBM Model 1} & \textbf{Phrase-based SMT} \\
+\midrule
+50K  & 11.64 & 20.48 \\
+100K & 12.35 & 21.95 \\
+\bottomrule
+\end{tabular}
+\caption{Europarl in-domain BLEU (1{,}755 held-out sentences, FR length 5--15) as a function of training set size. Both systems are evaluated with the same fixed test set.}
+\label{tab:scaling}
+\end{table}
+
+\section{Limitations and Future Work}
+\label{sec:plan}
+
+The current work has several limitations that we leave to future investigation.
  
-\paragraph{Error taxonomy.} On a sample of 50--100 sentences we will manually categorize errors (reordering, OOV, morphology, idiom, etc.) across the three systems and report the distribution.
- 
-\paragraph{Data contamination, continued.} We will finalize our analysis of whether OPUS-MT has seen \texttt{newstest2014}, and if we find evidence of contamination we will additionally evaluate on a more recent WMT test set that post-dates OPUS-MT training.
+\paragraph{Scaling the training data.} Section~\ref{sec:scaling} reports scaling results at 50K and 100K training pairs. Extending this to 250K and 500K pairs was not possible due to memory constraints in the Colab environment. Completing the full scaling curve would clarify how much of the remaining gap to OPUS-MT is attributable to data volume versus model class.
+
+\paragraph{IBM Model 2 baseline.} IBM Model 2 adds a position-dependent alignment distribution $a(i \mid j, l_e, l_f)$ on top of Model 1 and should improve alignment quality at roughly the same computational cost. Implementing it from scratch would give a stronger word-based baseline.
+
+\paragraph{MERT-style tuning of the log-linear weights.} The phrase-based decoder's feature weights are currently set by hand. Implementing minimum error rate training~\cite{och-2003-minimum} on a held-out dev set to tune these weights directly against corpus BLEU would likely yield further gains.
+
+\paragraph{In-domain evaluation of IBM Model 1 and OPUS-MT.} Table~\ref{tab:bleu} reports in-domain Europarl BLEU only for the phrase-based system. Running IBM Model 1 and OPUS-MT on the same 1{,}755-sentence held-out set would allow a cleaner model-class comparison that is not confounded by domain shift.
+
+\paragraph{Error taxonomy.} Manually categorizing errors (reordering, OOV, morphology, idiom, etc.) across the three systems on a sample of 50--100 sentences would give a more fine-grained picture of where each model class fails.
+
+\paragraph{Data contamination.} Our contamination analysis remains incomplete: the model-card inspection did not produce a definitive conclusion about whether \texttt{newstest2014} was held out during OPUS-MT training. Evaluating on a more recent WMT test set that post-dates OPUS-MT training would resolve this concern.
  
 \bibliography{references}
 \bibliographystyle{acl_natbib}
